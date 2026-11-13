@@ -610,22 +610,23 @@ curl -f https://zed.dev/install.sh | sh
 
 ## 10. Bonus: One-Shot Fedora SWE Bootstrap Script
 
-Untuk menghemat waktu Anda setelah login pertama kali di Fedora, buat script shell otomatis berikut:
+Untuk menghemat waktu Anda setelah login pertama kali di Fedora, buat script shell otomatis berikut (sudah mencakup **RPM Fusion, Flathub, Zsh/Starship/Fonts, `fnm`/Node, `uv`/Python, Rust, Go, Docker, VS Code, Android Studio, Antigravity CLI, & ChatGPT/Codex CLI**):
 
 ```bash
 cat << 'EOF' > ~/setup_fedora_swe.sh
 #!/bin/bash
 set -e
 
-echo "=== [1/6] Memperbarui Sistem & Menambahkan Repo RPM Fusion ==="
+echo "=== [1/8] Memperbarui Sistem & Menambahkan Repo RPM Fusion + Flathub ==="
 sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
                     https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 sudo dnf upgrade --refresh -y
 sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-echo "=== [2/6] Memasang CLI Tools, Terminal, & Font ==="
-sudo dnf install -y zsh git gh curl wget fzf ripgrep bat fd-find zoxide eza btop tmux kitty util-linux-user @virtualization qemu-kvm
-sudo usermod -aG kvm $USER
+echo "=== [2/8] Memasang CLI Tools, Terminal, Virtualization (KVM), & Font ==="
+sudo dnf install -y zsh git gh curl wget fzf ripgrep bat fd-find zoxide eza btop tmux kitty util-linux-user @virtualization qemu-kvm libvirt
+sudo usermod -aG kvm "$USER"
+sudo usermod -aG libvirt "$USER"
 
 mkdir -p ~/.local/share/fonts
 cd ~/.local/share/fonts
@@ -636,19 +637,19 @@ if [ ! -f "JetBrainsMonoNerdFont-Regular.ttf" ]; then
 fi
 cd ~
 
-echo "=== [3/6] Memasang Starship & Zsh Plugins ==="
+echo "=== [3/8] Memasang Starship & Zsh Plugins ==="
 curl -sS https://starship.rs/install.sh | sh -s -- -y
 mkdir -p ~/.zsh
 [ ! -d ~/.zsh/zsh-autosuggestions ] && git clone https://github.com/zsh-users/zsh-autosuggestions ~/.zsh/zsh-autosuggestions
 [ ! -d ~/.zsh/zsh-syntax-highlighting ] && git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.zsh/zsh-syntax-highlighting
 
-echo "=== [4/6] Memasang Full-Stack Ecosystems (fnm, uv, rustup) ==="
-# fnm & Node
+echo "=== [4/8] Memasang Full-Stack Ecosystems (fnm, uv, rustup, Go) ==="
+# fnm & Node.js LTS
 curl -fsSL https://fnm.vercel.app/install | bash
 export PATH="$HOME/.local/share/fnm:$PATH"
 eval "$(fnm env)"
 fnm install --lts
-npm install -g pnpm bun @anthropic-ai/claude-code
+npm install -g pnpm bun @anthropic-ai/claude-code @openai/codex
 
 # uv (Python)
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -656,10 +657,42 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Rustup
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-echo "=== [5/6] Memperbaiki Dual-Boot Clock (RTC) ==="
+# Go (Golang)
+sudo dnf install -y golang
+
+echo "=== [5/8] Memasang Docker CE & Docker Compose ==="
+sudo dnf -y install dnf-plugins-core
+sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+
+echo "=== [6/8] Memasang VS Code & Android Studio ==="
+sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
+sudo dnf check-update || true
+sudo dnf install -y code
+
+flatpak install -y flathub com.google.AndroidStudio
+
+echo "=== [7/8] Memasang AI CLI & Desktop Apps (Antigravity & ChatGPT) ==="
+# Antigravity CLI (agy)
+curl -fsSL https://antigravity.google/cli/install.sh | bash
+
+# ChatGPT Desktop (.rpm) jika sudah didownload ke ~/Downloads
+if [ -f "$HOME/Downloads/chatgpt.x86_64.rpm" ]; then
+    sudo dnf install -y "$HOME/Downloads/chatgpt.x86_64.rpm"
+fi
+
+echo "=== [8/8] Memperbaiki Dual-Boot Clock (RTC) ==="
 timedatectl set-local-rtc 1 --adjust-system-clock
 
-echo "=== [6/6] Selesai! Ubah shell ke zsh dengan: chsh -s \$(which zsh) ==="
+echo ""
+echo "=== SELESAI! Langkah terakhir: ==="
+echo "1. Ubah shell ke Zsh: chsh -s \$(which zsh)"
+echo "2. Antigravity Desktop: download tarball Linux dari https://antigravity.google/download/"
+echo "3. ChatGPT Desktop (jika belum): download chatgpt.x86_64.rpm dari https://learn.chatgpt.com/docs/linux/linux-app lalu jalankan: sudo dnf install -y ~/Downloads/chatgpt.x86_64.rpm"
+echo "4. Logout & login ulang agar grup docker/kvm/libvirt dan shell Zsh aktif!"
 EOF
 
 chmod +x ~/setup_fedora_swe.sh
